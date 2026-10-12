@@ -1,23 +1,40 @@
-#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
 
-// Рекурсивный алгоритм Евклида
-int gcd_euclid_rec(int a, int b) {
+
+long long binary_gcd(long long a, long long b) {
+
+    if (a == 0) return b;
     if (b == 0) return a;
-    return gcd_euclid_rec(b, a % b);
-}
+    if (a == b) return a;
 
-// Итеративный вариант (без рекурсии)
-int gcd_euclid_iter(int a, int b) {
-    while (b != 0) {
-        int temp = a % b;
-        a = b;
-        b = temp;
+    int a_is_even = !(a & 1);
+    int b_is_even = !(b & 1);
+
+    if (a_is_even && b_is_even) {
+        return binary_gcd(a >> 1, b >> 1) << 1;
     }
-    return a;
+    else if (a_is_even && !b_is_even) {
+        return binary_gcd(a >> 1, b);
+    }
+    else if (!a_is_even && b_is_even) {
+        return binary_gcd(a, b >> 1);
+    }
+    else {
+        long long diff = (a > b) ? (a - b) : (b - a);
+        long long min_val = (a < b) ? a : b;
+        return binary_gcd(diff, min_val);
+    }
 }
 
-int main() {
-    std::cout << "НОД(64, 57) = " << gcd_euclid_rec(64, 57) << std::endl;  // 1
-    std::cout << "НОД(48, 18) = " << gcd_euclid_iter(48, 18) << std::endl; // 6
+int main(int argc, char *argv[]) {
+
+    long long a = atoll(argv[1]);
+    long long b = atoll(argv[2]);
+
+    long long result = binary_gcd(a, b);
+
+    printf("НОД(%lld, %lld) = %lld\n", a, b, result);
+
     return 0;
 }
