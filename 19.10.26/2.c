@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef union {
     uint64_t full;
@@ -9,61 +10,94 @@ typedef union {
     } half;
 } Number64;
 
-unsigned __int128 karatsuba_64(uint64_t x, uint64_t y) {
-    if (x <= 0xFFFFFFFFFFFFFFFFULL && (x >> 32) == 0 && y <= 0xFFFFFFFFFFFFFFFFULL && (y >> 32) == 0) {
-        return (unsigned __int128)x * y;
-    }
+typedef struct {
+    uint64_t low;
+    uint64_t high;
+} Number128;
 
+Number128 multiply_64(uint64_t x, uint64_t y) {
     Number64 X, Y;
     X.full = x;
     Y.full = y;
 
-
-    // Шаг 2: Вычисляем три произведения Карацубы
-    unsigned __int128 p1 = (unsigned __int128)X.half.high * Y.half.high; // A1 * B1
-    unsigned __int128 p2 = (unsigned __int128)X.half.low * Y.half.low; // A0 * B0
+    uint64_t p1 = (uint64_t)X.half.high * Y.half.high;
+    uint64_t p2 = (uint64_t)X.half.low * Y.half.low;
     
-    // Суммы половинок (могут потребовать 65-й бит, поэтому кастуем к 64-битным)
-    uint64_t sumX = X.half.high + X.half.low;
-    uint64_t sumY = Y.half.high + Y.half.low;
-    unsigned __int128 p3 = (unsigned __int128)sumX * sumY; // (A1 + A0) * (B1 + B0)
+    uint64_t sumX = (uint64_t)X.half.high + X.half.low;
+    uint64_t sumY = (uint64_t)Y.half.high + Y.half.low;
+    uint64_t p3 = sumX * sumY;
 
-    // Шаг 3: Находим средний член
-    unsigned __int128 middle = p3 - p1 - p2;
+    uint64_t middle = p3 - p1 - p2;
 
-    // Шаг 4: Сборка финального 128-битного результата со сдвигом на 32 и 64 бита
-    return (p1 << 64) + (middle << 32) + p2;
+    Number128 result;
+    result.low = p2 + (middle << 32);
+    uint64_t carry = (result.low < p2) ? 1 : 0;
+    
+    result.high = p1 + (middle >> 32) + carry;
+
+    return result;
 }
 
-// Функция для красивого вывода 128-битного числа
-void print_u128(unsigned __int128 n) {
-    if (n == 0) {
+bool is_zero(Number128 n) {
+    return n.low == 0 && n.high == 0;
+}
+
+void div_mod_10(Number128 n, Number128 *quot, uint32_t *rem) {
+    quot->low = 0;
+    quot->high = 0;
+    uint64_t r = 0;
+
+    for (int i = 127; i >= 0; i--) {
+        int bit = 0;
+        if (i >= 64) {
+            bit = (n.high >> (i - 64)) & 1;
+        } else {
+            bit = (n.low >> i) & 1;
+        }
+
+        r = (r << 1) | bit;
+        if (r >= 10) {
+            r -= 10;
+            if (i >= 64) {
+                quot->high |= ((uint64_t)1 << (i - 64));
+            } else {
+                quot->low |= ((uint64_t)1 << i);
+            }
+        }
+    }
+    *rem = (uint32_t)r;
+}
+
+void print_u128(Number128 n) {
+    if (is_zero(n)) {
         printf("0\n");
         return;
     }
+
     char buf[40];
     int i = 39;
     buf[i] = '\0';
-    while (n > 0) {
-        buf[--i] = "0123456789"[n % 10];
-        n /= 10;
+
+    Number128 temp = n;
+    while (!is_zero(temp)) {
+        uint32_t rem;
+        Number128 quot;
+        div_mod_10(temp, &quot, &rem);
+        buf[--i] = "0123456789"[rem];
+        temp = quot;
     }
+
     printf("%s\n", &buf[i]);
 }
 
 int main() {
-    // Пример: перемножаем два больших 64-битных числа
     uint64_t a = 123456789012345ULL;
     uint64_t b = 987654321098765ULL;
 
-    unsigned __int128 result = karatsuba_64(a, b);
-    unsigned __int128 expected = (unsigned __int128)a * b;
+    Number128 result = multiply_64(a, b);
 
-    printf("Результат Карацубы:   ");
+    printf("Результат умножения: ");
     print_u128(result);
-
-    printf("Ожидаемый результат: ");
-    print_u128(expected);
 
     return 0;
 }

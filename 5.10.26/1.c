@@ -15,7 +15,7 @@ int main(int argc, char* argv[]){
     printf("\n");
     for (int i = 0; i<n; i++){
         if(*(p+i)<t){
-            printf("%i ", p);
+            printf("%i ", i);
         }
     }
 }
